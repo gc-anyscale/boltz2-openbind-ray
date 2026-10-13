@@ -149,6 +149,11 @@ def train_loop_per_worker(config: dict):
             self.history.append(metrics)
             window = [m["loss"] for m in self.history[-10:]]
             metrics["loss_avg10"] = sum(window) / len(window)
+            # Smoothed protein-ligand lDDT: single steps are noisy (one complex per worker,
+            # random noise level), so Ray Tune's early stopping compares this instead.
+            lddt = [m["lddt_inter_protein_ligand_step"] for m in self.history[-20:]
+                    if m["lddt_inter_protein_ligand_step"] == m["lddt_inter_protein_ligand_step"]]
+            metrics["lddt_avg20"] = sum(lddt) / len(lddt) if lddt else float("nan")
             if rank == 0:
                 print(f"step {metrics['step']:>4}  loss {metrics['loss']:7.3f}  avg10 {metrics['loss_avg10']:7.3f}  "
                       f"distogram {metrics['distogram_loss']:6.3f}  lr {metrics['lr']:.1e}  "
@@ -197,10 +202,26 @@ def train_loop_per_worker(config: dict):
             torch.save({k: v.detach().cpu() for k, v in weights.items()}, Path(tmp) / "of3_ev71_ft.pt")
             (Path(tmp) / "loss_curve.json").write_text(json.dumps(report.history, indent=1))
             checkpoint = ray.train.Checkpoint.from_directory(tmp)
-        ray.train.report({"step": module.global_step, "final": True}, checkpoint=checkpoint)
+        last = {k: v for k, v in report.history[-1].items() if k != "worker0_pdb_id"} if report.history else {}
+        ray.train.report({**last, "step": module.global_step, "final": True}, checkpoint=checkpoint)
 
 
-def main():
+def make_trainer(args, callbacks=()) -> TorchTrainer:
+    """The TorchTrainer for one fine-tuning run. tune_finetune.py builds one per trial."""
+    of3_config = build_config(args)
+    TrainingExperimentConfig.model_validate(of3_config)   # fail fast, before any GPU starts
+    scaling = ScalingConfig(
+        num_workers=args.num_workers, use_gpu=True, accelerator_type=args.accelerator,
+        resources_per_worker={"CPU": min(args.loader_workers + 1, 6)})
+    return TorchTrainer(
+        train_loop_per_worker,
+        train_loop_config={"of3": of3_config, "max_steps": args.max_steps, "export_ema": args.export_ema},
+        scaling_config=scaling,
+        run_config=RunConfig(name=args.name, storage_path=str(args.storage), callbacks=list(callbacks),
+                             checkpoint_config=CheckpointConfig(num_to_keep=1)))
+
+
+def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--num-workers", type=int, default=2, help="GPU workers (one GPU each)")
     ap.add_argument("--max-steps", type=int, default=150, help="optimizer steps (one complex per worker per step)")
@@ -214,25 +235,20 @@ def main():
     ap.add_argument("--base-ckpt", type=Path, default=BASE_CKPT)
     ap.add_argument("--storage", type=Path, default=SHARED / "finetune" / "runs")
     ap.add_argument("--name", default=f"of3-ev71-{time.strftime('%Y%m%d-%H%M%S')}")
-    args = ap.parse_args()
+    return ap
 
+
+def check_inputs(args):
     for path in (args.data / "training_cache.json", args.base_ckpt):
         if not path.exists():
             raise SystemExit(f"Missing {path}. Run prepare_finetune.py / setup_data.py first.")
 
-    of3_config = build_config(args)
-    TrainingExperimentConfig.model_validate(of3_config)   # fail fast, before any GPU starts
-    scaling = ScalingConfig(
-        num_workers=args.num_workers, use_gpu=True, accelerator_type=args.accelerator,
-        resources_per_worker={"CPU": min(args.loader_workers + 1, 6)})
-    trainer = TorchTrainer(
-        train_loop_per_worker,
-        train_loop_config={"of3": of3_config, "max_steps": args.max_steps, "export_ema": args.export_ema},
-        scaling_config=scaling,
-        run_config=RunConfig(name=args.name, storage_path=str(args.storage),
-                             checkpoint_config=CheckpointConfig(num_to_keep=1)))
+
+def main():
+    args = parser().parse_args()
+    check_inputs(args)
     start = time.time()
-    result = trainer.fit()
+    result = make_trainer(args).fit()
 
     ckpt_dir = Path(result.checkpoint.path)
     curve = json.loads((ckpt_dir / "loss_curve.json").read_text())

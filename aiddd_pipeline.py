@@ -200,7 +200,8 @@ class Boltz2Predictor:
     key = "boltz2"
 
     def __init__(self, target: str = "ev71-2a", diffusion_samples: int = 1, recycling_steps: int = 3,
-                 affinity_samples: int = 5, monitor_dir: Optional[str] = None):
+                 affinity_samples: int = 5, monitor_dir: Optional[str] = None,
+                 affinity: bool = True, extra_args: tuple = (), out_dir: Optional[str] = None):
         start_gpu_monitor(monitor_dir)
         self.t = TARGETS[target]
         self.protein = read_first_sequence(self.t.path("fasta"))
@@ -208,9 +209,11 @@ class Boltz2Predictor:
         self.recycling = recycling_steps
         # The affinity head runs its own diffusion ensemble (5 samples by default), which is
         # over half of Boltz-2's GPU time. Fewer samples are faster; cache them separately.
+        self.affinity = affinity
         self.affinity_samples = affinity_samples
+        self.extra_args = list(extra_args)   # more `boltz predict` flags (tune_boltz.py)
         suffix = "" if affinity_samples == 5 else f"_aff{affinity_samples}"
-        self.out = self.t.pred_root / f"{self.key}{suffix}"
+        self.out = Path(out_dir) if out_dir else self.t.pred_root / f"{self.key}{suffix}"
         self.out.mkdir(parents=True, exist_ok=True)
 
     def _yaml(self, smiles: str) -> str:
@@ -218,7 +221,7 @@ class Boltz2Predictor:
             "version: 1\nsequences:\n"
             f"  - protein:\n      id: A\n      sequence: {self.protein}\n      msa: {self.t.path('msa')}\n"
             f"  - ligand:\n      id: B\n      smiles: '{smiles}'\n"
-            "properties:\n  - affinity:\n      binder: B\n"
+            + ("properties:\n  - affinity:\n      binder: B\n" if self.affinity else "")
         )
 
     def _cached(self, lig_id):
@@ -254,7 +257,7 @@ class Boltz2Predictor:
                  "--cache", str(BOLTZ_CACHE), "--output_format", "mmcif",
                  "--recycling_steps", str(self.recycling),
                  "--diffusion_samples", str(self.samples), "--num_workers", "2",
-                 "--diffusion_samples_affinity", str(self.affinity_samples)],
+                 "--diffusion_samples_affinity", str(self.affinity_samples), *self.extra_args],
                 capture_output=True, text=True)
             pred = work / "out" / "boltz_results_in" / "predictions"
             for lig_id, _ in todo:
@@ -602,7 +605,10 @@ def summarize(df, model_keys, curated, target: Target):
                     line += f"   | published (same complexes) {p.median():5.2f} A, {(p < 2).mean():6.1%}"
             lines.append(line)
     if "boltz2_affinity_pred_value" in d:
-        a = d.drop_duplicates("ligand_id").dropna(subset=["experimental_pKD", "boltz2_affinity_pred_value"])
+        # Cast to numpy floats first: Ray Data returns Arrow-backed columns, where NaN is not
+        # treated as missing and dropna() would keep ligands with no measured affinity.
+        a = (d.drop_duplicates("ligand_id")[["experimental_pKD", "boltz2_affinity_pred_value"]]
+             .astype(float).dropna())
         if len(a) > 5:
             # Boltz-2 affinity_pred_value is log10(IC50 in uM): lower = tighter, so negate.
             rho = (-a.boltz2_affinity_pred_value).corr(a.experimental_pKD, method="spearman")
