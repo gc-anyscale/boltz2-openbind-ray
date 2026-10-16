@@ -1,7 +1,7 @@
 """
 Tune the OpenFold3 fine-tune with Ray Tune: which learning rate gives the best poses?
 
-    python tune_finetune.py                                   # 4 learning rates, 1 GPU each, about 45 min
+    python tune_finetune.py                                   # 4 learning rates, 1 GPU each, about 35 min
     python tune_finetune.py --lrs 1e-5,3e-5,1e-4,3e-4,1e-3 --max-steps 300 --workers-per-trial 2
 
 Each Tune trial is one complete Ray Train run (finetune_ray_train.py) with its own

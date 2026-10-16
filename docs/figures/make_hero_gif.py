@@ -153,7 +153,7 @@ def scene_question(n=26):
         ax.text(p[0], p[1] - 7.5, "binding pocket", fontsize=8.5, color=INK2, ha="center", va="top", zorder=6)
         text_block(bar, "Where does a drug bind?",
                    "A drug works by fitting into a pocket on a protein. Co-folding models predict the 3D "
-                   "structure of the protein and the drug molecule together, from just two text inputs:")
+                   "structure of the protein and the drug molecule together, from just 2 text inputs:")
         k = int(len(SEQ) * ease(t * 1.6))
         bar.text(0.585, 0.47, "Protein sequence (amino acids)", fontsize=8.2, color=MUTED, va="top")
         seq = SEQ[:k]
@@ -181,9 +181,9 @@ def scene_crystal(n=22):
             tag(ax, (c[0] - 3.5, c[1] + 2.5), "crystal pose", CRYSTAL, dx=-7, dy=6.5, ha="right")
         text_block(bar, "The answer key: X-ray crystals",
                    "An X-ray crystal structure shows where the drug really sits, atom by atom. "
-                   "This workshop uses 2,147 crystal structures from three antiviral drug "
+                   "This workshop uses 2,147 crystal structures from 3 antiviral drug "
                    "discovery projects (EV-A71 2A protease, SARS-CoV-2 and MERS-CoV main protease). "
-                   "The models never see these structures: they get only the two text inputs.")
+                   "The models never see these structures: they get only the 2 text inputs.")
         add(fig_to_image(fig, DPI), 90)
     durs[-1] = 2200
 
@@ -209,10 +209,10 @@ def scene_predict(n=36):
                 tag(ax, (c[0] + 2.5, c[1] + 2), SHOWN[m], MODEL_COLORS[m], dx=6, dy=6)
         key(ax, [("crystal pose (faint)", CRYSTAL), ("OpenBind-0", MODEL_COLORS["openbind0"]),
                  ("Boltz-2", MODEL_COLORS["boltz2"])])
-        text_block(bar, "Two models, two predictions",
+        text_block(bar, "2 models, 2 predictions",
                    "OpenBind-0 and Boltz-2 are diffusion models. Each starts from atoms placed at random "
-                   "and refines them, step by step, into a 3D pose. Same inputs, same protein: the two "
-                   "models put the drug in different places.")
+                   "and refines them, step by step, into a 3D pose. Given the same inputs and the same "
+                   "protein, the 2 models place the drug in different positions.")
         add(fig_to_image(fig, DPI), 90)
     durs[-1] = 1800
 
@@ -236,7 +236,7 @@ def scene_score(n=30):
         text_block(bar, "Score against the crystal",
                    "The predicted protein is superposed on the crystal protein. Then the error is measured "
                    "as ligand RMSD: the typical distance between each predicted atom and the same atom "
-                   "in the crystal. Below 2 Å, about one bond length, the pose counts as correct.")
+                   "in the crystal. Below 2 Å, about 1 bond length, the pose counts as correct.")
         for k, m in enumerate(SHOWN):
             if a < 0.99:
                 continue
@@ -277,10 +277,10 @@ def scene_scale(n=40):
     for i in range(n + 1):
         t = ease(i / n)
         fig, bar = new_frame(4, caption=False)
-        bar.text(0.045, 0.94, "Scale up: every crystal structure, three models", fontsize=14,
+        bar.text(0.045, 0.94, "Scale up: every crystal structure, 3 models", fontsize=14,
                  fontweight="bold", color=INK, va="top")
-        bar.text(0.045, 0.865, "Ray Data runs all three models at once on an autoscaling cluster of L4 GPUs. "
-                 "Each square is one crystal structure,\nin the order the drug discovery project made them. "
+        bar.text(0.045, 0.865, "Ray Data runs all 3 models at once on an autoscaling cluster of L4 GPUs. "
+                 "Each square is 1 crystal structure,\nin the order the drug discovery project made them. "
                  "Filled: pose within 2 Å of the crystal. Pale: wrong pose.",
                  fontsize=9.2, color=INK2, va="top", linespacing=1.45)
         for tkey in grids:
@@ -328,7 +328,7 @@ def scene_workflow(n=30):
     for i in range(n):
         fig, bar = new_frame(5, caption=False)
         bar.text(0.045, 0.94, "What you build in this workshop", fontsize=14, fontweight="bold", color=INK, va="top")
-        bar.text(0.045, 0.865, "One reproducible pipeline, from public crystal data to a model you can query live.",
+        bar.text(0.045, 0.865, "A reproducible pipeline, from public crystal data to a model you can query live.",
                  fontsize=9.6, color=INK2, va="top")
         lit = min(len(boxes), int(i / 4) + 1)
         bw, gap, x = 0.165, 0.0262, 0.045
@@ -347,7 +347,7 @@ def scene_workflow(n=30):
                              arrowprops=dict(arrowstyle="-|>", color=INK2 if k + 1 < lit else RULE, lw=0.9,
                                              mutation_scale=8))
         if lit == len(boxes):
-            bar.text(0.045, 0.235, "Reference runs: one benchmark job per target on 8 L4 GPUs, 89% mean GPU "
+            bar.text(0.045, 0.235, "Reference runs: 1 benchmark job per target on 8 L4 GPUs, 89% mean GPU "
                      "utilization.\nFine-tuning: 150 optimizer steps on 2 L4 GPUs in 28 minutes.",
                      fontsize=9, color=INK2, va="top", linespacing=1.5)
         add(fig_to_image(fig, DPI), 120)

@@ -471,14 +471,8 @@ def _load_cif(path: str):
     return MMCIFParser(QUIET=True).get_structure("p", buf)[0]
 
 
-def score_pose(pred_cif: str, ref_pdb: Path, ref_sdf: Path, exp_ca_cache: dict):
-    from Bio.PDB import PDBParser
-    lq, lqe = _read_sdf_heavy(ref_sdf)
-    if str(ref_pdb) not in exp_ca_cache:
-        exp = PDBParser(QUIET=True).get_structure("e", str(ref_pdb))[0]
-        exp_ca_cache[str(ref_pdb)] = _binding_chain_ca(exp, lq)
-    exp_ca = exp_ca_cache[str(ref_pdb)]
-    pred = _load_cif(pred_cif)
+def _superpose(pred, exp_ca):
+    """Rotation and translation that put the predicted protein on the crystal one (CA atoms)."""
     pred_ca = _ca_by_resnum(pred, "A")
     common = [i for i in sorted(set(pred_ca) & set(exp_ca)) if pred_ca[i][0] == exp_ca[i][0]]
     if len(common) < 50:
@@ -486,11 +480,43 @@ def score_pose(pred_cif: str, ref_pdb: Path, ref_sdf: Path, exp_ca_cache: dict):
     P = np.array([pred_ca[i][1] for i in common])
     Q = np.array([exp_ca[i][1] for i in common])
     R, t = _kabsch(P, Q)
-    ca_rmsd = float(np.sqrt((((P @ R.T + t) - Q) ** 2).sum(1).mean()))
+    return R, t, float(np.sqrt((((P @ R.T + t) - Q) ** 2).sum(1).mean()))
+
+
+def score_pose(pred_cif: str, ref_pdb: Path, ref_sdf: Path, exp_ca_cache: dict):
+    from Bio.PDB import PDBParser
+    lq, lqe = _read_sdf_heavy(ref_sdf)
+    if str(ref_pdb) not in exp_ca_cache:
+        exp = PDBParser(QUIET=True).get_structure("e", str(ref_pdb))[0]
+        exp_ca_cache[str(ref_pdb)] = _binding_chain_ca(exp, lq)
+    pred = _load_cif(pred_cif)
+    R, t, ca_rmsd = _superpose(pred, exp_ca_cache[str(ref_pdb)])
     lp, lpe = _pred_ligand(pred)
     if lp is None or not len(lp):
         raise ValueError("no predicted ligand on chain B")
     return _element_matched_rmsd(lp @ R.T + t, lpe, lq, lqe), ca_rmsd
+
+
+def pose_in_crystal_frame(pred_cif: str, ref_pdb: Path) -> str:
+    """The predicted complex moved onto its crystal (the superposition score_pose uses), as
+    PDB text. Models predict in their own coordinate frame, so without this a predicted and
+    a crystal ligand drawn together would sit far apart even when the pose is right."""
+    import io
+    from Bio.PDB import PDBIO, PDBParser
+    ref_pdb = Path(ref_pdb)
+    lq, _ = _read_sdf_heavy(ref_pdb.with_name(ref_pdb.name.replace("_complex_ref.pdb", "_ligand_ref.sdf")))
+    exp_ca = _binding_chain_ca(PDBParser(QUIET=True).get_structure("e", str(ref_pdb))[0], lq)
+    pred = _load_cif(pred_cif)
+    R, t, _ = _superpose(pred, exp_ca)
+    for atom in pred.get_atoms():
+        atom.transform(R.T, t)   # Biopython applies coord @ rot + tran
+    for res in pred.get_residues():
+        if len(res.resname) > 3:   # Boltz-2 names the ligand LIG1: too wide for a PDB column
+            res.resname = "LIG"
+    out, buf = PDBIO(), io.StringIO()
+    out.set_structure(pred)
+    out.save(buf)
+    return buf.getvalue()
 
 
 def make_scorer(model_keys, target: str = "ev71-2a"):

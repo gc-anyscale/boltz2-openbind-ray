@@ -95,8 +95,8 @@ def architecture():
     ax.annotate("", xy=(80.8, 21.5), xytext=(79.2, 21.5),
                 arrowprops=dict(arrowstyle="-|>", color=INK2, lw=0.8, mutation_scale=7))
     box(81, 13.5, 17.5, 16, "Join and score", "on CPU nodes:\nligand RMSD against\nevery crystal,\nParquet output")
-    ax.text(1.5, 1.2, "One Ray Data pipeline per model, all running at the same time on an 8-GPU budget split by "
-            "cost per ligand. Each coloured block is one predictor process.", fontsize=6.6, color=MUTED)
+    ax.text(1.5, 1.2, "Each model runs its own Ray Data pipeline, all at the same time, on an 8-GPU budget split by "
+            "cost per ligand. Each coloured block is 1 predictor process.", fontsize=6.6, color=MUTED)
     save(fig, "architecture.png")
 
 
@@ -141,7 +141,7 @@ def pose_accuracy():
         ax.grid(axis="y", color=RULE, lw=0.5, zorder=0)
         panel_label(ax, "cd"[col], x=-0.1)
     fig.text(0.09, 0.012, "Curated binding events (valid reference pose, no suspected crystallographic artefact). "
-             "One sampled pose per ligand.", fontsize=6.8, color=MUTED)
+             "1 sampled pose per ligand.", fontsize=6.8, color=MUTED)
     save(fig, "pose_accuracy.png")
 
 
@@ -167,7 +167,7 @@ def affinity():
                 va="top", fontsize=8, color=INK, bbox=dict(fc=BG, ec="none", pad=1.5, alpha=0.9))
         ax.grid(color=RULE, lw=0.5)
         panel_label(ax, "ab"[k], x=-0.14)
-    fig.text(0.105, 0.02, "One point per compound with a measured affinity. Higher is tighter binding on both axes.",
+    fig.text(0.105, 0.02, "Each point is a compound with a measured affinity. Higher is tighter binding on both axes.",
              fontsize=6.8, color=MUTED)
     save(fig, "affinity.png")
 
@@ -220,10 +220,10 @@ def throughput():
                        "Boltz-2, 1 per GPU", "Boltz-2, 2 per GPU"])
     ax.tick_params(axis="y", length=0)
     ax.set_xlim(0, 480), ax.set_ylim(0, 6.6)
-    ax.set_xlabel("ligands per hour on one L4 GPU")
+    ax.set_xlabel("ligands per hour on 1 L4 GPU")
     ax.grid(axis="x", color=RULE, lw=0.5, zorder=0)
     ax.spines["left"].set_visible(False)
-    fig.text(0.2, 0.95, "Throughput when several predictors share one GPU", fontsize=9.5, fontweight="bold")
+    fig.text(0.2, 0.95, "Throughput when several predictors share 1 GPU", fontsize=9.5, fontweight="bold")
     fig.text(0.2, 0.02, "EV-A71 2A protease, batches of 8 ligands. OpenFold3 runs with the OpenBind-0 weights.",
              fontsize=6.6, color=MUTED)
     save(fig, "throughput.png")
@@ -268,7 +268,7 @@ def gpu_cluster():
     cb.ax.set_title("GPU %", fontsize=7, color=INK2, pad=4)
     fig.text(0.09, 0.95, "GPU utilization per node, MERS-CoV Mpro benchmark (8 L4 GPUs)", fontsize=9.5,
              fontweight="bold")
-    fig.text(0.09, 0.02, f"One-minute means of nvidia-smi samples taken every 5 s. Mean while all 8 GPUs were up: "
+    fig.text(0.09, 0.02, f"1-minute means of nvidia-smi samples taken every 5 s. Mean while all 8 GPUs were up: "
              f"{steady:.0f}%; over the whole run: {overall:.0f}%.\nEach node is released once its model has no work "
              f"left, so the cluster shrinks as the run finishes.", fontsize=6.6, color=MUTED, linespacing=1.5)
     save(fig, "gpu_cluster.png")

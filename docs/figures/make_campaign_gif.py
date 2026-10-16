@@ -68,7 +68,7 @@ def frame(stage_idx, lig_draw, title, body, facts, models, ghost=None):
     fig = plt.figure(figsize=(W, H), dpi=DPI)
     bar = fig.add_axes([0, 0, 1, 1], zorder=-1)
     bar.set_xlim(0, 1), bar.set_ylim(0, 1), bar.axis("off")
-    bar.text(0.02, 0.955, "One chemical series from the EV-A71 2A campaign, crystal structures in the same pocket",
+    bar.text(0.02, 0.955, "A chemical series from the EV-A71 2A campaign, crystal structures in the same pocket",
              fontsize=7.5, color=MUTED, va="top")
     # stage tracker
     names = ["Fragment", "Early follow-on", "Late follow-on", "Does each model keep up?"]

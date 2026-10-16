@@ -26,6 +26,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from ray import serve
 from ray.serve.handle import DeploymentHandle
 
+from aiddd_pipeline import pose_in_crystal_frame
+
 SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/user_storage/aiddd"))
 RESULTS = Path(os.environ.get("AIDDD_RESULTS", SHARED / "results" / "ev71-2a"))
 STRUCTURES = SHARED / "raw" / "OpenBind_EV-A71_2A" / "structures"
@@ -62,8 +64,8 @@ let viewer = $3Dmol.createViewer("v",{backgroundColor:"white"});
 async function show(cid){
   document.getElementById("cur").textContent = cid;
   viewer.clear();
-  const p = await (await fetch("/structure/pred/__KEY__/"+cid)).text();
-  viewer.addModel(p,"cif");
+  const r = await fetch("/structure/pred/__KEY__/"+cid);
+  viewer.addModel(await r.text(), r.headers.get("x-format") || "cif");
   viewer.setStyle({model:0},{cartoon:{color:"#cfd8dc",opacity:0.6}});
   viewer.setStyle({model:0,chain:"B"},{stick:{color:"#2e9e4f",radius:0.25}});
   const g = await fetch("/structure/gt/"+cid);
@@ -124,7 +126,9 @@ class Boltz2Live:
 class Viewer:
     def __init__(self, live: DeploymentHandle):
         self.live = live
-        self.df = pd.read_parquet(RESULTS)
+        # File by file: a column that is all null in one file and numeric in another
+        # will not merge as one Parquet dataset.
+        self.df = pd.concat([pd.read_parquet(f) for f in sorted(RESULTS.glob("*.parquet"))], ignore_index=True)
         self.models = [k for k in MODELS if f"{k}_lig_rmsd" in self.df]
 
     @api.get("/", response_class=HTMLResponse)
@@ -161,7 +165,11 @@ class Viewer:
         row = self.df[self.df.complex_name == cid]
         if key not in self.models or row.empty or not row.iloc[0][f"{key}_cif"]:
             return PlainTextResponse("not found", status_code=404)
-        return Path(row.iloc[0][f"{key}_cif"]).read_text()
+        cif = row.iloc[0][f"{key}_cif"]
+        try:   # move the prediction onto its crystal, so the two ligands can be compared
+            return PlainTextResponse(pose_in_crystal_frame(cif, row.iloc[0].ref_pdb), headers={"x-format": "pdb"})
+        except Exception:
+            return PlainTextResponse(Path(cif).read_text(), headers={"x-format": "cif"})
 
     @api.get("/structure/gt/{cid}", response_class=PlainTextResponse)
     def gt(self, cid: str):

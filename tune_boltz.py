@@ -2,7 +2,7 @@
 Does more compute fix Boltz-2's EV-A71 2A follow-ons? A Ray Tune sweep over Boltz-2's
 inference settings.
 
-    python tune_boltz.py                                     # 8 settings, 1 L4 each, about 30 min
+    python tune_boltz.py                                     # 8 settings, 1 L4 each, about 1 h
     python tune_boltz.py --target sars2-mpro --ligands 48
 
 Boltz-2 places only 3% of EV-A71 2A follow-on poses within 2 A with its default settings
