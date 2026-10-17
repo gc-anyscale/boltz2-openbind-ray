@@ -62,7 +62,7 @@ The repository accompanies a hands-on workshop at the AI Drug Discovery & Develo
 
 ## Background
 
-### Pockets, poses and affinity
+### Binding pockets, poses and affinity
 
 - **Binding pocket.** A protein folds into a 3D shape with pockets on its surface. In an enzyme, one of
   them is the active site. The EV-A71 2A protease cuts the viral polyprotein into working parts, so a
@@ -74,7 +74,7 @@ The repository accompanies a hands-on workshop at the AI Drug Discovery & Develo
   protein-ligand complex. It is slow and expensive, so 925 public binding events on a single target is
   an unusually rich benchmark.
 
-### How co-folding works
+### Co-folding prediction
 
 A co-folding model receives only the protein sequence and the ligand's SMILES (Simplified Molecular
 Input Line Entry System) string, a line of text that encodes the molecule's atoms and bonds [[5]](#ref-5). It
@@ -89,7 +89,7 @@ other species. Residues that change together during evolution are usually in con
 signal drives much of the folding accuracy. Every complex of a target shares the same protein, so the
 pipeline computes one MSA per target in advance [[8]](#ref-8).
 
-### How poses are scored
+### Pose evaluation
 
 1. Superpose the predicted protein on the crystal protein.
 2. Measure the average distance between matching ligand atoms. This is the **ligand RMSD**.
@@ -98,7 +98,7 @@ pipeline computes one MSA per target in advance [[8]](#ref-8).
 Above 2 Å, the ligand is usually in the pocket but turned the wrong way. Any design idea based on such
 a pose is unreliable.
 
-### How a discovery campaign unfolds
+### Structure of a discovery campaign
 
 - **Fragment screen.** Thousands of small molecules (about 15 heavy atoms) are soaked into protein
   crystals. Most do not bind. The few that do bind weakly, but they show which parts of the pocket accept
@@ -108,7 +108,7 @@ a pose is unreliable.
 
 ![From fragment screen to optimized compound](docs/images/campaign_explained.gif)
 
-### Why generalization is the real test
+### Generalization to new targets and chemistry
 
 - Co-folding models are trained on the Protein Data Bank [[6]](#ref-6), which covers some protein families well
   and others poorly.
@@ -118,7 +118,7 @@ a pose is unreliable.
 - Splitting results by campaign stage tests the same question from the chemistry side: follow-on
   compounds move further from anything the model has seen.
 
-### Why affinity is harder than pose
+### Affinity prediction
 
 Pose is a geometry problem. Affinity is a free energy, which also depends on entropy, water displaced
 from the pocket and protein flexibility. The OpenBind study [[1]](#ref-1) reports a striking negative result: a
@@ -126,7 +126,7 @@ baseline that uses only molecular weight ranked compounds better than every stru
 Larger molecules tend to bind more tightly, and a model that learns only this trend has learned nothing
 about the pocket.
 
-### Why target-specific fine-tuning matters
+### Target-specific fine-tuning
 
 Fragment-screen structures show a model what the target pocket looks like with a ligand bound, and which
 chemistry it accepts. This knowledge carries over to follow-on compounds, which share the pocket even
@@ -206,14 +206,14 @@ correlation comes from separating the two. Within each cluster, ρ is 0.65 and 0
 
 ![Boltz-2 predicted affinity against measured affinity](docs/images/affinity.png)
 
-### A chemical series through the campaign
+### Case study: one chemical series
 
 The animation follows one EV-A71 2A series from a fragment to a potent follow-on, with each model's
 prediction at every step.
 
 ![One chemical series from the EV-A71 2A campaign, and how each model follows it](docs/images/campaign.gif)
 
-### Reproducing the tables
+### Reproducibility
 
 ```bash
 python scripts/compare_targets.py --csv summary.csv
@@ -293,7 +293,7 @@ results feed the Ray Serve application described above.
 - **Monitor GPU use.** The first predictor on each GPU node samples `nvidia-smi` every five seconds, and
   the job log reports the average utilization per node.
 
-### Measured effect of GPU sharing
+### Throughput with shared GPUs
 
 One L4 GPU, EV-A71 2A, eight ligands per batch:
 
@@ -311,7 +311,7 @@ One L4 GPU, EV-A71 2A, eight ligands per batch:
 
 ![Throughput on one L4 with several predictors per GPU](docs/images/throughput.png)
 
-### Measured effect of pipeline layout
+### GPU utilization by pipeline layout
 
 MERS-CoV Mpro, eight L4 GPUs:
 
@@ -323,7 +323,7 @@ MERS-CoV Mpro, eight L4 GPUs:
 
 ![GPU utilization per node across the run](docs/images/gpu_cluster.png)
 
-### Other notes
+### Additional observations
 
 - **Affinity samples.** On 160 EV-A71 2A ligands, one affinity sample ranks compounds as well as the
   default five (Spearman ρ of 0.37 and 0.36; the two agree at Pearson r = 0.99).
