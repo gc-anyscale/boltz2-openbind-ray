@@ -50,25 +50,57 @@ PAGE = """<!doctype html><html><head><meta charset="utf-8">
  .tab{display:inline-block;margin:0 6px 8px 0;padding:3px 8px;border:1px solid #ccd;border-radius:12px;font-size:12px;color:#334;text-decoration:none} .tab.on{background:#334;color:#fff}
  #live{padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid #ddd}
  #legend{position:absolute;top:10px;left:10px;background:#fff9;padding:6px 10px;border-radius:6px;font-size:13px}
+ details{font-size:13px;line-height:1.45;margin:0 0 12px;padding:8px 10px;background:#f6f7f9;border-radius:6px}
+ summary{cursor:pointer;font-weight:600} details dt{font-weight:600;margin-top:8px} details dd{margin:2px 0 0 0;color:#333}
+ th[title]{cursor:help;text-decoration:underline dotted} #lread{font-size:12px;color:#444;margin-top:4px;line-height:1.4}
 </style></head><body>
 <div id="list">
 <form id="live" onsubmit="predict(event)"><h2>Live Boltz-2 prediction</h2>
  <input id="smi" placeholder="SMILES, e.g. CNC(=O)c1nn(C)c2ccccc12" style="width:100%;box-sizing:border-box;padding:5px">
- <button style="margin:6px 0">Predict</button> <span id="lstat"></span></form>
+ <button style="margin:6px 0">Predict</button> <span id="lstat"></span><div id="lread"></div></form>
+<details><summary>How to read this page</summary><dl>
+ <dt>The question</dt><dd>Each row is an X-ray crystal structure of a compound bound to the EV-A71 2A protease. The model
+  received only the protein sequence and the compound's SMILES string; the crystal structure is the answer key.</dd>
+ <dt>Model tabs</dt><dd><b>Boltz-2</b> and <b>OpenBind-0</b> are general-purpose co-folding models. <b>OF3 fine-tuned</b> is
+  OpenFold3 adapted to this protein using its fragment-screen structures only.</dd>
+ <dt>Lig RMSD (Å)</dt><dd>Average distance between each predicted ligand atom and the same atom in the crystal, after the
+  two proteins are superposed. <b>Below 2 Å (green) counts as a correct pose</b>; a carbon-carbon bond is about 1.5 Å.
+  Values of 2 to 4 Å usually mean the compound is in the pocket but rotated; above 5 Å it is in the wrong place.</dd>
+ <dt>Stage</dt><dd><b>Fragment</b>: a small molecule from the initial crystallographic screen. <b>Follow-on</b>: a larger
+  compound designed later by medicinal chemists. Follow-ons are the harder and more useful test, because they contain
+  chemistry the screen never showed.</dd>
+ <dt>pKD</dt><dd>Measured binding affinity, −log<sub>10</sub> of the dissociation constant K<sub>D</sub> in molar.
+  <b>Higher means tighter binding</b>, and each unit is a tenfold change: pKD 5 = 10 µM, 6 = 1 µM, 7 = 100 nM, 9 = 1 nM.
+  Fragments typically bind at 3 to 5; optimized compounds reach 7 or more. Blank means not measured.</dd>
+ <dt>Colours in the 3D view</dt><dd><b style="color:#2e9e4f">Green</b>: the model's predicted pose.
+  <b style="color:#f28c28">Orange</b>: the crystal pose. Grey ribbon: the predicted protein. Good predictions overlap.</dd>
+ <dt>Live prediction</dt><dd><b>Ligand ipTM</b> (0 to 1) is Boltz-2's confidence in the protein-ligand interface; as a
+  rough guide, above 0.8 is confident and below 0.5 is unreliable. <b>Affinity</b> is Boltz-2's predicted
+  log<sub>10</sub>(IC<sub>50</sub> in µM), so <b>lower means tighter binding</b>: 2 ≈ 100 µM (weak), 0 = 1 µM,
+  −2 ≈ 10 nM (potent). <b>P(binder)</b> is the predicted probability that the molecule binds at all. Confidence is not
+  accuracy: Boltz-2 is often confidently wrong on this protein, so check its poses against the leaderboard.</dd>
+</dl></details>
 <h2>__MODEL__: __N__ crystal complexes</h2><div>__TABS__</div><div id="stats">__STATS__</div>
-<table><tr><th>Complex</th><th>Lig RMSD</th><th>Stage</th><th>pKD</th></tr>__ROWS__</table></div>
+<table><tr><th title="Crystal structure identifier">Complex</th>
+<th title="Distance between predicted and crystal ligand (Å). Below 2 Å (green) is a correct pose; lower is better.">Lig RMSD (Å)</th>
+<th title="Fragment: initial screen. Follow-on: larger compound designed later; the harder test.">Stage</th>
+<th title="Measured affinity, −log10 KD. Higher binds tighter; 6 = 1 µM, 9 = 1 nM.">pKD</th></tr>__ROWS__</table></div>
 <div id="view"><div id="v"></div>
 <div id="legend"><b>green</b> __MODEL__ &nbsp; <b>orange</b> X-ray &nbsp; <span id="cur"></span></div></div>
 <script>
+// Behind the Anyscale Workspace proxy the page is opened as ...?port=8000; keep that on every request.
+const PORT = new URLSearchParams(location.search).get("port");
+function u(path){ return PORT ? path + (path.includes("?") ? "&" : "?") + "port=" + PORT : path; }
+document.querySelectorAll("a.tab").forEach(a => a.href = u(a.getAttribute("href")));
 let viewer = $3Dmol.createViewer("v",{backgroundColor:"white"});
 async function show(cid){
   document.getElementById("cur").textContent = cid;
   viewer.clear();
-  const r = await fetch("/structure/pred/__KEY__/"+cid);
+  const r = await fetch(u("/structure/pred/__KEY__/"+cid));
   viewer.addModel(await r.text(), r.headers.get("x-format") || "cif");
   viewer.setStyle({model:0},{cartoon:{color:"#cfd8dc",opacity:0.6}});
   viewer.setStyle({model:0,chain:"B"},{stick:{color:"#2e9e4f",radius:0.25}});
-  const g = await fetch("/structure/gt/"+cid);
+  const g = await fetch(u("/structure/gt/"+cid));
   if (g.ok){ viewer.addModel(await g.text(), "pdb");
     viewer.setStyle({model:1},{});
     viewer.setStyle({model:1,resn:"LIG"},{stick:{color:"#f28c28",radius:0.25}}); }
@@ -79,11 +111,19 @@ async function predict(ev){
   const smi = document.getElementById("smi").value.trim(), st = document.getElementById("lstat");
   if(!smi) return;
   st.textContent = "predicting on GPU (about a minute; cached repeats are instant)...";
-  const r = await fetch("/predict", {method:"POST", headers:{"Content-Type":"application/json"},
+  document.getElementById("lread").textContent = "";
+  const r = await fetch(u("/predict"), {method:"POST", headers:{"Content-Type":"application/json"},
                                      body: JSON.stringify({smiles: smi})});
   const j = await r.json();
   if(!r.ok || j.status === "failed" || j.status === "skipped"){ st.textContent = "failed: " + (j.error || r.status); return; }
   const m = j.metrics, f = v => (typeof v === "number" ? v.toFixed(2) : "n/a");
+  const aff = m.affinity_pred_value, ic50 = typeof aff === "number" ? Math.pow(10, aff) : null;
+  const conf = m.ligand_iptm >= 0.8 ? "confident" : (m.ligand_iptm >= 0.5 ? "moderately confident" : "not confident");
+  document.getElementById("lread").innerHTML = (ic50 === null ? "" :
+    `Predicted IC<sub>50</sub> ≈ <b>${ic50 >= 1 ? ic50.toFixed(ic50 >= 10 ? 0 : 1) + " µM" : (ic50 * 1000).toFixed(0) + " nM"}</b>
+     (pIC<sub>50</sub> ${(6 - aff).toFixed(1)}; ${aff > 1 ? "weak" : (aff > -1 ? "moderate" : "potent")} binding). `) +
+    `Boltz-2 is ${conf} about this pose, and estimates a ${Math.round(100 * m.affinity_probability_binary)}% chance that the molecule binds. ` +
+    `No crystal structure exists for a new molecule, so there is no RMSD to check.`;
   st.innerHTML = `ligand ipTM <b>${f(m.ligand_iptm)}</b> &middot; affinity <b>${f(m.affinity_pred_value)}</b> (log10 IC50, &micro;M) &middot; P(binder) <b>${f(m.affinity_probability_binary)}</b> &middot; ${j.seconds.toFixed(0)} s`;
   document.getElementById("cur").textContent = "live: " + smi;
   viewer.clear(); viewer.addModel(j.cif, "cif");
@@ -145,7 +185,7 @@ class Viewer:
                 f"<td>{r.complex_name.split('-', 1)[1]}</td><td class='{cls}'>{'' if pd.isna(rmsd) else f'{rmsd:.2f}'}</td>"
                 f"<td>{'fragment' if r.fragment_screen else 'follow-on'}</td><td>{pkd}</td></tr>")
         ok = df[f"{key}_lig_rmsd"].dropna()
-        stats = (f"median ligand RMSD {ok.median():.2f} &Aring; &middot; {(ok < 2).mean():.0%} under 2 &Aring;"
+        stats = (f"median ligand RMSD {ok.median():.2f} &Aring; &middot; <b>{(ok < 2).mean():.0%} of poses correct</b> (under 2 &Aring;)"
                  if len(ok) else "not scored yet")
         tabs = "".join(f'<a class="tab{" on" if k == key else ""}" href="/?model={k}">{MODELS[k]}</a>'
                        for k in self.models)

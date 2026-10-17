@@ -25,24 +25,108 @@ COLORS = {"crystal": "#2b2b2b", "boltz2": "#1F5A96", "openbind0": "#E1A33B", "of
 TARGET_KEYS = ["ev71-2a", "sars2-mpro", "mers-mpro"]
 warnings.filterwarnings("ignore", category=FutureWarning)
 _3DMOL = "https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.0.4/3Dmol-min.js"
-# Shown in the viewer box until 3Dmol.js draws over it. A notebook reopened without being trusted
-# keeps the saved HTML but does not run its script, so the 3D view only appears after running the cell again.
-_FALLBACK = ('<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
-             'color:#8a857c;font:13px system-ui,sans-serif">3D view not loaded: run this cell '
-             '(or trust the notebook) to show it.</div>')
+
+
+
+# ---------------------------------------------------------------------------
+# Static picture shown in every viewer box until 3Dmol.js draws over it. Saved outputs
+# of an untrusted notebook, and browsers that block scripts in notebook outputs, never
+# run the viewer script, so they show this picture instead of an empty box.
+# ---------------------------------------------------------------------------
+def _atoms(model):
+    """Heavy atoms of one viewer model as (xyz, chain, resname, atom name), plus SDF bonds."""
+    import numpy as np
+    lines = model["text"].splitlines()
+    if model["fmt"] == "sdf":
+        n_atoms, n_bonds = int(lines[3][:3]), int(lines[3][3:6])
+        rows = [l.split() for l in lines[4:4 + n_atoms]]
+        keep = [i for i, r in enumerate(rows) if r[3] != "H"]
+        xyz = np.array([[float(v) for v in rows[i][:3]] for i in keep])
+        index = {old: new for new, old in enumerate(keep)}
+        bonds = [(index[a - 1], index[b - 1]) for a, b in
+                 ((int(l[:3]), int(l[3:6])) for l in lines[4 + n_atoms:4 + n_atoms + n_bonds])
+                 if a - 1 in index and b - 1 in index]
+        return xyz, ["L"] * len(xyz), ["LIG"] * len(xyz), [""] * len(xyz), bonds
+    recs = [l for l in lines if l.startswith(("ATOM", "HETATM")) and l[76:78].strip() != "H"]
+    xyz = np.array([[float(l[30:38]), float(l[38:46]), float(l[46:54])] for l in recs]).reshape(-1, 3)
+    return xyz, [l[21] for l in recs], [l[17:20].strip() for l in recs], [l[12:16].strip() for l in recs], None
+
+
+def _snapshot(models, height):
+    """PNG data URI: protein backbone trace (grey) and each ligand as sticks in its model's colour."""
+    import base64
+    import io
+
+    import numpy as np
+    from matplotlib.figure import Figure
+    trace, ligands = None, []
+    for m in models:
+        xyz, chain, resn, name, bonds = _atoms(m)
+        for sel, style in m["styles"]:
+            if "cartoon" in style and trace is None:
+                trace = xyz[[n == "CA" for n in name]]
+            if "stick" in style:
+                pick = np.array([sel.get("chain") in (None, c) for c in chain], bool)
+                if pick.any():
+                    sub = xyz[pick]
+                    if bonds is None:   # PDB ligand: bond atoms closer than 1.9 A
+                        d = np.linalg.norm(sub[:, None] - sub[None], axis=-1)
+                        sub_bonds = list(zip(*np.nonzero(np.triu((d > 0.4) & (d < 1.9)))))
+                    else:
+                        sub_bonds = bonds
+                    ligands.append((sub, sub_bonds, style["stick"].get("color", "#2b2b2b")))
+    if not ligands:
+        return ""
+    allig = np.vstack([l[0] for l in ligands])
+    center = allig.mean(0)
+    # orient so the ligands spread across the image plane (principal axes of their atoms)
+    _, _, vt = np.linalg.svd(allig - center)
+    rot = vt.T
+    proj = lambda pts: (pts - center) @ rot
+    w_in, h_in = 8.2, height / 100
+    fig = Figure(figsize=(w_in, h_in), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1]); ax.set_axis_off(); ax.set_aspect("equal")
+    lig2d = proj(allig)
+    half = max(np.abs(lig2d[:, 0]).max() * h_in / w_in, np.abs(lig2d[:, 1]).max(), 4.0) + 5.0
+    ax.set_xlim(-half * w_in / h_in, half * w_in / h_in); ax.set_ylim(-half, half)
+    if trace is not None and len(trace) > 1:
+        t = proj(trace)
+        near = np.linalg.norm(trace - center, axis=1) < 2.2 * half
+        for i in range(len(t) - 1):
+            if near[i] and near[i + 1] and np.linalg.norm(trace[i + 1] - trace[i]) < 4.2:
+                depth = 1 / (1 + np.exp(t[i, 2] / 4))   # nearer residues are darker
+                ax.plot(t[i:i + 2, 0], t[i:i + 2, 1], color="#bdb8b0", lw=5, alpha=0.25 + 0.5 * depth,
+                        solid_capstyle="round", zorder=1)
+    for k, (pts, bonds, color) in enumerate(ligands):
+        q = proj(pts)
+        for a, b in bonds:
+            ax.plot(q[[a, b], 0], q[[a, b], 1], color=color, lw=3.2, solid_capstyle="round", zorder=3 + k)
+        ax.scatter(q[:, 0], q[:, 1], s=9, color=color, zorder=3 + k)
+    buf = io.BytesIO(); fig.savefig(buf, format="png", facecolor="white")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def _placeholder(models, height):
+    try:
+        img = _snapshot(models, height)
+    except Exception:   # the picture is a convenience; never let it break the cell
+        img = ""
+    # only styles that survive JupyterLab's sanitizer for untrusted output (no inset, no object-fit)
+    pic = (f'<img src="{img}" alt="structure" style="position:absolute;top:0;left:0;width:100%;height:auto">'
+           if img else "")
+    return pic + ('<div style="position:absolute;right:10px;bottom:6px;font:11px system-ui,sans-serif;'
+                  'color:#8a857c">Static view. Run the cell for the interactive 3D view.</div>')
 
 
 # ---------------------------------------------------------------------------
 # 3D
 # ---------------------------------------------------------------------------
-def _viewer(models, legend="", height=420, zoom=None, zoom_out=0.85):
-    """models: [{"text", "fmt", "styles": [(selection, style), ...]}]. Loads 3Dmol.js once."""
-    div = "v" + uuid.uuid4().hex[:10]
-    payload = json.dumps(models)
-    js = f"""
+def _viewer_js(div, payload, zoom, zoom_out):
+    """Script that draws one viewer. JupyterLab runs an output's script before the output is
+    attached to the page, so it waits until both the viewer box and 3Dmol.js are available."""
+    return f"""
 (function() {{
-  function draw() {{
-    var el = document.getElementById("{div}");
+  function draw(el) {{
     el.innerHTML = "";
     var v = $3Dmol.createViewer(el, {{backgroundColor: "white"}});
     var models = {payload};
@@ -51,20 +135,36 @@ def _viewer(models, legend="", height=420, zoom=None, zoom_out=0.85):
       v.setStyle({{model: i}}, {{}});
       m.styles.forEach(function(s) {{ s[0].model = i; v.addStyle(s[0], s[1]); }});
     }});
-    var zoom = {json.dumps(zoom or {})};
+    var zoom = {zoom};
     if (zoom === "ligands")   // the reference ligand (model 1) and every predicted ligand (chain B)
       zoom = {{predicate: function(a) {{ return a.model === 1 || (a.model > 1 && a.chain === "B"); }}}};
     v.zoomTo(zoom); v.zoom({zoom_out}); v.render();
   }}
-  if (window.$3Dmol) {{ draw(); return; }}
-  var s = document.createElement("script"); s.src = "{_3DMOL}"; s.onload = draw;
-  s.onerror = function() {{ document.getElementById("{div}").firstChild.textContent =
-    "Could not download 3Dmol.js from cdnjs.cloudflare.com. Check the internet access, then run this cell again."; }};
-  document.head.appendChild(s);
+  if (!window.$3Dmol && !document.getElementById("aiddd-3dmol")) {{
+    var s = document.createElement("script"); s.id = "aiddd-3dmol"; s.src = "{_3DMOL}";
+    s.onerror = function() {{ window.aiddd3dmolFailed = true; }};
+    document.head.appendChild(s);
+  }}
+  var tries = 0;
+  (function attempt() {{
+    var el = document.getElementById("{div}");
+    if (el && window.$3Dmol) {{ draw(el); return; }}
+    if (el && window.aiddd3dmolFailed) {{
+      el.lastChild.textContent = "Could not download 3Dmol.js from cdnjs.cloudflare.com. Check the internet access, then run this cell again.";
+      return;
+    }}
+    if (++tries < 600) setTimeout(attempt, 50);
+  }})();
 }})();"""
+
+
+def _viewer(models, legend="", height=420, zoom=None, zoom_out=0.85):
+    """models: [{"text", "fmt", "styles": [(selection, style), ...]}]. Loads 3Dmol.js once."""
+    div = "v" + uuid.uuid4().hex[:10]
+    js = _viewer_js(div, json.dumps(models), json.dumps(zoom or {}), zoom_out)
     display(HTML(f'<div style="font:13px system-ui,sans-serif;margin:4px 0">{legend}</div>'
                  f'<div id="{div}" style="width:100%;max-width:820px;height:{height}px;position:relative;'
-                 f'border:1px solid #e5e5e5;border-radius:6px">{_FALLBACK}</div><script>{js}</script>'))
+                 f'border:1px solid #e5e5e5;border-radius:6px">{_placeholder(models, height)}</div><script>{js}</script>'))
 
 
 def _chip(color, text):
@@ -187,7 +287,9 @@ def by_stage(df, models=("boltz2", "openbind0", "of3ft")):
 def serve_link(path="/"):
     """Where this Workspace exposes Ray Serve (port 8000) to your browser."""
     domain = os.environ.get("ANYSCALE_SESSION_DOMAIN")
-    url = f"https://{domain}{path}" if domain else f"http://localhost:8000{path}"
-    display(HTML(f'<p style="font-size:15px">Open the viewer: <a href="{url}" target="_blank"><b>{url}</b></a>'
-                 f'<br><span style="color:#777">Or Workspace <b>Ports</b> tab → port 8000.</span></p>'))
+    # The Workspace proxy serves the Ray Dashboard at the domain root and other ports via ?port=
+    url = f"https://{domain}{path}?port=8000" if domain else f"http://localhost:8000{path}"
+    display(HTML(f'<p style="font-size:15px">Open the viewer: <a href="{url}" target="_blank" rel="noopener noreferrer"><b>{url}</b></a>'
+                 f'<br><span style="color:#777">If the link reports an invalid referer, copy it into a new '
+                 f'browser tab instead of clicking it.</span></p>'))
     return url
