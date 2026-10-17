@@ -2,19 +2,22 @@
 Check the Ray Serve app end to end: deploy it, load the leaderboard, run one
 live Boltz-2 prediction, then repeat it to confirm the cache.
 
-    python check_serve.py                       # deploy, check, shut down
-    python check_serve.py --keep                # leave the app running afterwards
+    python scripts/check_serve.py                       # deploy, check, shut down
+    python scripts/check_serve.py --keep                # leave the app running afterwards
 
 Needs one L4 GPU for the live prediction replica.
 """
 
 import argparse
+import sys
 import time
+from pathlib import Path
 
 import requests
 from ray import serve
 
-from serve_viewer import app
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # the repository root
+from serve_viewer import app  # noqa: E402
 
 URL = "http://localhost:8000"
 SMILES = "CNC(=O)c1nn(C)c2ccccc12"   # a small EV-A71 2A binder from the OpenBind release

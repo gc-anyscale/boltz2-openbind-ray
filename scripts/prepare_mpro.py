@@ -1,8 +1,8 @@
 """
 Build two more benchmark targets: SARS-CoV-2 Mpro and MERS-CoV Mpro.
 
-    python prepare_mpro.py                  # both targets (about 10 min, 300 MB)
-    python prepare_mpro.py --target mers-mpro
+    python scripts/prepare_mpro.py                  # both targets (about 10 min, 300 MB)
+    python scripts/prepare_mpro.py --target mers-mpro
 
 Sources (all public):
     Crystal structures   Fragalysis target CoV-Mpro (ASAP Discovery and COVID Moonshot), CC-BY 4.0

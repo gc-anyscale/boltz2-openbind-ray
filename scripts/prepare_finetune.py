@@ -1,8 +1,8 @@
 """
 Build an OpenFold3 training set from the OpenBind EV-A71 2A fragment screen.
 
-    python prepare_finetune.py                    # about 30 s on CPU
-    python prepare_finetune.py --limit 4 --check  # quick test: 4 complexes, then load them with OF3
+    python scripts/prepare_finetune.py                    # about 30 s on CPU
+    python scripts/prepare_finetune.py --limit 4 --check  # quick test: 4 complexes, then load them with OF3
 
 Selection: fragment-screen complexes with a PoseBusters-valid reference pose, no
 suspected crystallographic artefact and no covalent ligand, one binding event per

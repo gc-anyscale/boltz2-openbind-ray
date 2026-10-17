@@ -77,7 +77,7 @@ TARGETS = {
         pred_root=PRED_ROOT, affinity_label="pKD",
         published=(SHARED / "EV-A71_2A_benchmark" / "structure" / "processed_outputs"
                    / "final_cofolding_pose_data.parquet")),
-    # Built by prepare_mpro.py from Fragalysis structures and ASAP/Polaris potency.
+    # Built by scripts/prepare_mpro.py from Fragalysis structures and ASAP/Polaris potency.
     "sars2-mpro": Target(
         "sars2-mpro", "SARS-CoV-2 Mpro", SHARED / "raw" / "SARS-CoV-2_Mpro",
         "metadata.csv", "protein.fasta", "protein.a3m",
@@ -692,7 +692,7 @@ def main():
     args.out = args.out or str(SHARED / "results" / target.key)
     for p in (target.path("metadata"), target.path("fasta"), target.path("msa"), target.structures, BOLTZ_CACHE):
         if not p.exists():
-            raise SystemExit(f"Missing {p}. Run `python setup_data.py` first (README step 2).")
+            raise SystemExit(f"Missing {p}. Run `python scripts/setup_data.py` first (README step 2).")
     for key, ckpt, url in (("openbind0", OF3_OB_CKPT, OF3_OB_URL), ("of3ft", OF3_FT_CKPT, OF3_FT_URL)):
         if key in model_keys and not ckpt.exists():
             ckpt.parent.mkdir(parents=True, exist_ok=True)

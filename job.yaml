@@ -1,7 +1,7 @@
 # Anyscale Job: OpenBind EV-A71 2A benchmark on an autoscaling GPU cluster.
 #
 #   anyscale job submit -f job.yaml                                    # full benchmark, all three models
-#   anyscale job submit -f job.yaml -- python setup_data.py            # one-time data download
+#   anyscale job submit -f job.yaml -- python scripts/setup_data.py    # one-time data download
 #   anyscale job submit -f job.yaml -- python aiddd_pipeline.py --limit 8 --max-gpus 2
 #
 # Every worker group starts at zero nodes and scales with the Ray Data queue,

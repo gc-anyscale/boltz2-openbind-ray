@@ -4,16 +4,18 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Circle, Polygon, Rectangle
 import imageio.v2 as imageio
 import io
+from pathlib import Path
 
 plt.rcParams["font.family"] = "Poppins"
 
 INK, MUTED, SOFT, RULE = "#14161A", "#5E646E", "#9AA1AC", "#E6E8EB"
 SURF, EDGE = "#F3F5F7", "#CDD3DA"
 TEAL, CORAL, BLUE, VIOLET, WHITE = "#0E9170", "#DB5B33", "#2D6FE0", "#6C63D8", "#FFFFFF"
+OUT = str(Path(__file__).resolve().parents[1] / "images")
 W, H = 1440, 810
 XU, YU = 160.0, 90.0
 
-STEP, HOLD, FADE, NFADE = 0.115, 4.0, 0.055, 14
+STEP, HOLD, FADE, NFADE = 150, 4500, 70, 14   # frame durations in ms (imageio.v2 reads ms)
 
 
 def ease(t):
@@ -85,7 +87,7 @@ def assemble(scenes, path):
                 a = ease(f/(NFADE+1))
                 imgs.append((end*(1-a)+nxt*a).astype(np.uint8)); durs.append(FADE)
     imageio.mimsave(path, imgs, duration=durs, loop=0, subrectangles=True)
-    print(path, len(imgs), f"{sum(durs):.1f}s")
+    print(path, len(imgs), f"{sum(durs) / 1000:.1f}s")
 
 
 # ------------------------------------------------------------------ GIF 1
@@ -216,7 +218,7 @@ def g1_score(u):
 
 
 assemble([(26, g1_inputs), (24, g1_msa), (30, g1_predict), (30, g1_score)],
-         "/mnt/user-data/outputs/cofolding_explained.gif")
+         OUT + "/cofolding_explained.gif")
 
 
 # ------------------------------------------------------------------ GIF 2
@@ -291,4 +293,4 @@ def g2(k, final=False):
 
 
 assemble([(24, g2(0)), (24, g2(1)), (24, g2(2)), (18, g2(2, final=True))],
-         "/mnt/user-data/outputs/campaign_explained.gif")
+         OUT + "/campaign_explained.gif")

@@ -1,8 +1,8 @@
 """
 One-time setup: download the dataset, the published benchmark, and model weights.
 
-    python setup_data.py                 # everything (about 15 GB, 10 to 20 min)
-    python setup_data.py --skip-of3      # Boltz-2 only (about 6 GB)
+    python scripts/setup_data.py                 # everything (about 15 GB, 10 to 20 min)
+    python scripts/setup_data.py --skip-of3      # Boltz-2 only (about 6 GB)
 
 Everything lands under $AIDDD_SHARED (default /mnt/user_storage/aiddd), which
 every node of a Workspace or Job can read. Each step is skipped if its output

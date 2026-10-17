@@ -1,12 +1,12 @@
 """
 Fine-tune OpenFold3 on OpenBind EV-A71 2A fragment structures with Ray Train.
 
-    python prepare_finetune.py                                      # once: build the training set
+    python scripts/prepare_finetune.py                              # once: build the training set
     python finetune_ray_train.py                                    # 2 L4 GPUs, 150 steps, about 30 min
     python finetune_ray_train.py --num-workers 4 --max-steps 300 --lr 2e-4
 
 Starts from the OpenBind-0 weights and trains on the 66 fragment-screen complexes
-written by prepare_finetune.py. OF3's own training stack does the work (data module,
+written by scripts/prepare_finetune.py. OF3's own training stack does the work (data module,
 weighted sampler, losses, per-sample gradient clipping, EMA); Ray Train adds:
 
     TorchTrainer      one worker per GPU, NCCL process group, placement on the cluster
@@ -33,10 +33,10 @@ from ray.train import CheckpointConfig, RunConfig, ScalingConfig
 from ray.train.torch import TorchTrainer
 
 from openfold3.entry_points.validator import TrainingExperimentConfig
-from prepare_finetune import dataset_paths
+from scripts.prepare_finetune import dataset_paths
 
 SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/user_storage/aiddd"))
-CONFIG = Path(__file__).parent / "finetune" / "finetune_ev71.yml"
+CONFIG = Path(__file__).parent / "configs" / "finetune_ev71.yml"
 DATA = SHARED / "finetune" / "ev71-2a"
 BASE_CKPT = SHARED / "of3_cache" / "of3-ob-2025-06-30-174k.pt"   # OpenBind-0
 DATASET = "openbind-ev71-2a"
@@ -231,7 +231,7 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--accelerator", default="L4", help="GPU type for the workers")
     ap.add_argument("--loader-workers", type=int, default=4, help="featurization processes per GPU")
     ap.add_argument("--export-ema", action="store_true", help="export EMA weights instead of the raw weights")
-    ap.add_argument("--data", type=Path, default=DATA, help="output of prepare_finetune.py")
+    ap.add_argument("--data", type=Path, default=DATA, help="output of scripts/prepare_finetune.py")
     ap.add_argument("--base-ckpt", type=Path, default=BASE_CKPT)
     ap.add_argument("--storage", type=Path, default=SHARED / "finetune" / "runs")
     ap.add_argument("--name", default=f"of3-ev71-{time.strftime('%Y%m%d-%H%M%S')}")
@@ -241,7 +241,7 @@ def parser() -> argparse.ArgumentParser:
 def check_inputs(args):
     for path in (args.data / "training_cache.json", args.base_ckpt):
         if not path.exists():
-            raise SystemExit(f"Missing {path}. Run prepare_finetune.py / setup_data.py first.")
+            raise SystemExit(f"Missing {path}. Run scripts/prepare_finetune.py / scripts/setup_data.py first.")
 
 
 def main():

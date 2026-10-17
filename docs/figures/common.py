@@ -87,7 +87,7 @@ def panel_label(ax, letter, x=-0.02, y=1.02):
 # Results
 # ---------------------------------------------------------------------------
 def load_results(target_key):
-    """Scored binding events on the curated set (same filter as compare_targets.py)."""
+    """Scored binding events on the curated set (same filter as scripts/compare_targets.py)."""
     path = SHARED / "results" / target_key
     df = pd.concat([pd.read_parquet(f) for f in sorted(path.glob("*.parquet"))], ignore_index=True)
     meta = pd.read_csv(TARGETS[target_key].path("metadata"))
@@ -230,6 +230,9 @@ def fig_to_image(fig, dpi=100):
     return Image.open(buf).convert("RGB")
 
 
+GIF_PACE = 1.4   # every frame duration is multiplied by this; larger plays slower
+
+
 def save_gif(frames, durations, path, colors=128, extra=()):
     """Quantize every frame to one shared palette (stable colours, small file).
     Named colours (models, crystal, good/bad) are pinned so they never drift."""
@@ -247,5 +250,5 @@ def save_gif(frames, durations, path, colors=128, extra=()):
     pal = Image.new("P", (1, 1))
     pal.putpalette([v for c in rgb for v in c] + [0] * 3 * (256 - len(rgb)))
     q = [f.quantize(palette=pal, dither=Image.Dither.NONE) for f in frames]
-    q[0].save(path, save_all=True, append_images=q[1:], duration=durations, loop=0, optimize=True, disposal=1)
+    q[0].save(path, save_all=True, append_images=q[1:], duration=[round(d * GIF_PACE) for d in durations], loop=0, optimize=True, disposal=1)
     return Path(path).stat().st_size

@@ -1,8 +1,8 @@
 """
 Compare models across targets and compound progression in one table.
 
-    python compare_targets.py                      # every target with results
-    python compare_targets.py --csv summary.csv    # also save the table
+    python scripts/compare_targets.py                      # every target with results
+    python scripts/compare_targets.py --csv summary.csv    # also save the table
 
 Reads the Parquet output of aiddd_pipeline.py for each target
 ($AIDDD_SHARED/results/<target>) and reports, per model, target and stage:
@@ -12,9 +12,12 @@ ranks compounds (Spearman correlation with the experimental values).
 """
 
 import argparse
+import sys
+from pathlib import Path
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # the repository root
 from aiddd_pipeline import MODELS, SHARED, STAGES, TARGETS
 
 
