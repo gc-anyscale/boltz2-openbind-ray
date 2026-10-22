@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 from IPython.display import HTML, display
 
-from aiddd_pipeline import SHARED, STAGES, TARGETS, pose_in_crystal_frame
+from aiddd_pipeline import SHARED, STAGES, TARGETS, pose_in_crystal_frame, relocate_paths
 
 USER = os.environ.get("ANYSCALE_USERNAME") or os.environ.get("USER") or "attendee"
 MINE = SHARED / "workshop" / USER          # everything this attendee writes goes here
@@ -256,7 +256,7 @@ def load_results(target):
     """Scored binding events from the full benchmark, on the curated set (valid crystal
     reference, no suspected crystallographic artefact), one row per crystal complex."""
     path = SHARED / "results" / target
-    df = pd.concat([pd.read_parquet(f) for f in sorted(path.glob("*.parquet"))], ignore_index=True)
+    df = relocate_paths(pd.concat([pd.read_parquet(f) for f in sorted(path.glob("*.parquet"))], ignore_index=True))
     meta = pd.read_csv(TARGETS[target].path("metadata"))
     keep = meta.pb_valid_ref.astype(bool) & ~meta.suspected_artefact.astype(bool)
     return df[df.complex_name.isin(set(meta.loc[keep, "complex_name"]))].reset_index(drop=True)
