@@ -284,7 +284,7 @@ class OF3Predictor:
 
     def __init__(self, key: str, ckpt_path: str, binary: str = "run_openfold",
                  target: str = "ev71-2a", diffusion_samples: int = 1, data_workers: int = 2,
-                 monitor_dir: Optional[str] = None):
+                 monitor_dir: Optional[str] = None, out_dir: Optional[str] = None):
         start_gpu_monitor(monitor_dir)
         self.key = key
         self.t = TARGETS[target]
@@ -292,7 +292,7 @@ class OF3Predictor:
         self.samples = diffusion_samples
         self.data_workers = data_workers
         self.protein = read_first_sequence(self.t.path("fasta"))
-        self.out = self.t.pred_root / key
+        self.out = Path(out_dir) if out_dir else self.t.pred_root / key
         self.out.mkdir(parents=True, exist_ok=True)
         os.environ.setdefault("OPENFOLD_CACHE", str(OF3_CACHE))
         # OpenFold3 only reads MSA files whose name it recognizes (a key of its
@@ -683,6 +683,11 @@ def main():
                     help="only ligands with an experimental affinity value")
     ap.add_argument("--of3ray-ckpt", default=None,
                     help="weights for the of3ray model (default: latest finetune_ray_train.py run)")
+    ap.add_argument("--stage", default=None, choices=STAGES,
+                    help="only ligands from one campaign stage, e.g. 'late follow-on'")
+    ap.add_argument("--pred-dir", default=None,
+                    help="write predictions to <pred-dir>/<model> instead of the shared cache, "
+                         "so a live run recomputes every ligand")
     ap.add_argument("--out", default=None, help="output Parquet directory (default: results/<target>)")
     args = ap.parse_args()
     model_keys = [m.strip() for m in args.models.split(",") if m.strip()]
@@ -712,6 +717,8 @@ def main():
     if args.affinity_only:
         lig = lig[lig.experimental_pKD.notna()]
         lig = lig.sample(min(args.limit, len(lig)), random_state=0) if args.limit else lig
+    if args.stage:
+        lig = lig[lig.stage == args.stage]
     print(f"Target: {target.name}")
     # Sort by size so each batch holds similar ligands: no batch waits on one giant.
     lig = lig.iloc[lig.smiles.str.len().argsort(kind="stable")].reset_index(drop=True)
@@ -737,9 +744,11 @@ def main():
     print("GPUs per model: " + ", ".join(f"{k} {g} ({per_gpu[k]} per GPU)" for k, g in gpus.items()))
 
     def predictor(k):
+        out_dir = {"out_dir": str(Path(args.pred_dir) / k)} if args.pred_dir else {}
         if k == "boltz2":
             return Boltz2Predictor, {"target": target.key, "diffusion_samples": args.diffusion_samples,
-                                     "affinity_samples": args.affinity_samples, "monitor_dir": args.out}
+                                     "affinity_samples": args.affinity_samples, "monitor_dir": args.out,
+                                     **out_dir}
         # of3ft is an OF3-p2 checkpoint: it needs the legacy openfold3 in /opt/of3-legacy.
         if k == "of3ft":
             ck = {"ckpt_path": str(OF3_FT_CKPT), "binary": "/opt/of3-legacy/bin/run_openfold"}
@@ -748,7 +757,7 @@ def main():
         else:
             ck = {"ckpt_path": str(OF3_OB_CKPT)}
         return OF3Predictor, {"key": k, "target": target.key, "monitor_dir": args.out,
-                              "diffusion_samples": args.diffusion_samples, **ck}
+                              "diffusion_samples": args.diffusion_samples, **ck, **out_dir}
 
     def run_model(k):
         """One independent Ray Data pipeline per model. Models never wait on each other:
