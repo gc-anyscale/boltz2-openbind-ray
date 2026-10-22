@@ -223,7 +223,7 @@ The per-complex results are stored as Parquet:
 
 ```python
 import pandas as pd
-df = pd.read_parquet("/mnt/user_storage/aiddd/results/ev71-2a")
+df = pd.read_parquet("/mnt/shared_storage/aiddd/results/ev71-2a")
 df.groupby("stage")[["boltz2_lig_rmsd", "openbind0_lig_rmsd", "of3ft_lig_rmsd"]].median()
 ```
 
@@ -369,7 +369,7 @@ the study:
 ```bash
 python scripts/setup_data.py                            # 15 to 20 min, once
 python aiddd_pipeline.py --limit 8 --max-gpus 2 \
-  --out /mnt/user_storage/aiddd/results/smoke           # 15 min, checks that everything works
+  --out /mnt/shared_storage/aiddd/results/smoke           # 15 min, checks that everything works
 anyscale job submit -f job.yaml --name aiddd-ev71       # 1 to 2 h, full benchmark
 serve run serve_viewer:app                              # viewer and live prediction
 ```
@@ -434,10 +434,10 @@ anyscale image build -f image/Containerfile -n aiddd-boltz2-of3 -r 2.59.0
 anyscale job submit -f job.yaml --name aiddd-setup -- python scripts/setup_data.py
 ```
 
-All data is stored under `/mnt/user_storage/aiddd`, which Workspaces and Jobs can both read:
+All data is stored under `/mnt/shared_storage/aiddd`, which every Workspace, Job and Service in the Anyscale cloud can read, whoever started it:
 
 ```
-/mnt/user_storage/aiddd/
+/mnt/shared_storage/aiddd/
   raw/OpenBind_EV-A71_2A/      structures, metadata CSV, FASTA, MSA        (500 MB)
   EV-A71_2A_benchmark/         published OpenBind results                  (11 MB)
   boltz_cache/                 Boltz-2 weights and chemical component data (6 GB)
@@ -467,13 +467,13 @@ Run eight ligands (two fragments and six follow-ons) through all three models:
 ```bash
 anyscale job submit -f job.yaml --name aiddd-smoke -- \
   python aiddd_pipeline.py --models boltz2,openbind0,of3ft \
-    --limit 8 --max-gpus 2 --out /mnt/user_storage/aiddd/results/smoke
+    --limit 8 --max-gpus 2 --out /mnt/shared_storage/aiddd/results/smoke
 ```
 
 The job log ends with a summary like this:
 
 ```
-Done in N min. 10 complexes scored -> /mnt/user_storage/aiddd/results/smoke
+Done in N min. 10 complexes scored -> /mnt/shared_storage/aiddd/results/smoke
   Boltz-2: {'ok': 8}
   OpenBind-0 (OF3): {'ok': 8}
   OF3 fine-tuned on EV-A71 2A: {'ok': 8}
@@ -503,7 +503,7 @@ anyscale job submit -f job.yaml --name aiddd-mers -- \
 
 ```bash
 python scripts/check_serve.py                                      # end-to-end check
-AIDDD_RESULTS=/mnt/user_storage/aiddd/results/ev71-2a serve run serve_viewer:app
+AIDDD_RESULTS=/mnt/shared_storage/aiddd/results/ev71-2a serve run serve_viewer:app
 ```
 
 Open the Workspace URL with `?port=8000` added. If your browser reports an invalid referer, paste the URL
@@ -549,7 +549,7 @@ Done in 27.7 min: 150 steps on 2 workers
   loss                           first 10 steps 0.138 -> last 10 steps 0.113
   lddt_inter_protein_ligand_step first 10 steps 0.434 -> last 10 steps 0.576
   median step time 9.2 s, peak GPU memory 13.6 GB
-  weights: /mnt/user_storage/aiddd/finetune/runs/<name>/checkpoint_.../of3_ev71_ft.pt
+  weights: /mnt/shared_storage/aiddd/finetune/runs/<name>/checkpoint_.../of3_ev71_ft.pt
 ```
 
 | Component | Role |
@@ -593,7 +593,7 @@ anyscale job submit -f job.yaml --name aiddd-of3ray -- \
   python aiddd_pipeline.py --models of3ray,of3ft,openbind0
 ```
 
-Predictions are cached per ligand, so delete `/mnt/user_storage/aiddd/predictions/of3ray` after
+Predictions are cached per ligand, so delete `/mnt/shared_storage/aiddd/predictions/of3ray` after
 retraining.
 
 ### Step 7. Searches with Ray Tune
@@ -635,7 +635,7 @@ anyscale job submit -f job.yaml --name tune-boltz -- python tune_boltz.py      #
 
 | Variable | Default | Used by |
 |---|---|---|
-| `AIDDD_SHARED` | `/mnt/user_storage/aiddd` | All scripts: data, weights, predictions and results |
+| `AIDDD_SHARED` | `/mnt/shared_storage/aiddd` | All scripts: data, weights, predictions and results |
 | `AIDDD_RESULTS` | `$AIDDD_SHARED/results/ev71-2a` | `serve_viewer.py` |
 
 ---
@@ -644,7 +644,7 @@ anyscale job submit -f job.yaml --name tune-boltz -- python tune_boltz.py      #
 
 | Symptom | Cause and fix |
 |---|---|
-| `Missing /mnt/user_storage/aiddd/...` | Data is not downloaded. Run Step 2 or Step 2b |
+| `Missing /mnt/shared_storage/aiddd/...` | Data is not downloaded. Run Step 2 or Step 2b |
 | Job stays at `pending=1` actors for several minutes | GPU nodes are starting. The first node usually takes three to six minutes |
 | `InsufficientInstanceCapacity` | The cloud has no free GPUs of that type. `enable_cross_zone_scaling` tries other zones. If all fail, remove `--of3-accelerator L40S` so every stage uses L4 |
 | Fine-tuning reports that the worker group timed out | Not enough free GPUs. Stop the Serve application from Section 7 (`serve shutdown`) and run the notebook in order |

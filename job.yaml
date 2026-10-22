@@ -15,7 +15,7 @@ image_uri: anyscale/image/aiddd-boltz2-of3:4
 working_dir: .
 excludes: [image, docs, .git, __pycache__]
 env_vars:
-  AIDDD_SHARED: /mnt/user_storage/aiddd   # shared by Workspaces and Jobs
+  AIDDD_SHARED: /mnt/shared_storage/aiddd   # shared by Workspaces and Jobs
   RAY_TRAIN_WORKER_GROUP_START_TIMEOUT_S: "900"   # Ray Train: allow time for GPU nodes to start
 compute_config:
   head_node:

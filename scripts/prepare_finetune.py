@@ -49,7 +49,7 @@ from openfold3.core.data.resources.residues import PROTEIN_RESTYPE_1TO3, Molecul
 
 RDLogger.DisableLog("rdApp.*")
 
-SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/user_storage/aiddd"))
+SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/shared_storage/aiddd"))
 RELEASE = SHARED / "raw" / "OpenBind_EV-A71_2A"
 MSA_ID = "EV-A71_2A"            # alignment representative shared by every complex
 MSA_NAME = "cfdb_uniref30"      # must be a key of OF3's MSASettings.max_seq_counts

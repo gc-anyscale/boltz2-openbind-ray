@@ -35,7 +35,7 @@ from ray.train.torch import TorchTrainer
 from openfold3.entry_points.validator import TrainingExperimentConfig
 from scripts.prepare_finetune import dataset_paths
 
-SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/user_storage/aiddd"))
+SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/shared_storage/aiddd"))
 CONFIG = Path(__file__).parent / "configs" / "finetune_ev71.yml"
 DATA = SHARED / "finetune" / "ev71-2a"
 BASE_CKPT = SHARED / "of3_cache" / "of3-ob-2025-06-30-174k.pt"   # OpenBind-0

@@ -30,7 +30,7 @@ import pandas as pd
 import ray
 from ray import tune
 
-SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/user_storage/aiddd"))
+SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/shared_storage/aiddd"))
 
 
 def ligand_set(target: str, n: int, seed: int = 0) -> pd.DataFrame:

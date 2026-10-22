@@ -37,7 +37,7 @@ from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 
 import finetune_ray_train as ft
 
-SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/user_storage/aiddd"))
+SHARED = Path(os.environ.get("AIDDD_SHARED", "/mnt/shared_storage/aiddd"))
 TARGET = "ev71-2a"
 
 
